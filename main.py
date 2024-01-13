@@ -370,7 +370,7 @@ def check_requests(accountID, targetID):
     
     cursor.execute(sql_command, values)
     return cursor.fetchone()
-
+    
 def admin_panel():
     purge(root)
     
@@ -618,6 +618,6 @@ def create_labels_only(rootValue, labelList, row):
 
 main_page('n', None) #created buttons for main
 
-admin_panel()
+# admin_panel()
 
 root.mainloop()
