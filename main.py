@@ -1,115 +1,11 @@
 from tkinter import *
-import mysql.connector
-import random
 from datetime import datetime
 import re
+from ui import *
+from database import *
 
-mydb = mysql.connector.connect(
-    host='localhost',
-    user='root',
-    password='password123',
-)
-cursor = mydb.cursor()
-
-cursor.execute("CREATE DATABASE IF NOT EXISTS bank")
-
-cursor.execute("USE bank")
-
-cursor.execute("""CREATE TABLE IF NOT EXISTS transactions(
-    sender_id VARCHAR(100),
-    receiver_id VARCHAR(100),
-    amount FLOAT,
-    date DATE
-    )""")
-
-cursor.execute("""CREATE TABLE IF NOT EXISTS bank(
-    first_name VARCHAR (100),
-    last_name VARCHAR (100),
-    dob DATE,
-    e_mail VARCHAR(100) NOT NULL,
-    postcode VARCHAR (7),
-    password VARCHAR (24),
-    balance FLOAT DEFAULT 0.0,
-    accountID VARCHAR(8),
-    PRIMARY KEY (e_mail, accountID)
-    )""")
-
-cursor.execute("""CREATE TABLE IF NOT EXISTS requests(
-    target_id VARCHAR(8),
-    requester_id VARCHAR(8),
-    amount FLOAT (20,2)
-    )""")
-mydb.commit()
-################################################
-font_default = ('Helvetica', 10, 'bold')
-font_big = ('Helvetica', 20, 'bold')
-alert_row = 15
-entries = {}
-
-labels_main = [
-    'E-mail',
-    'Password'
-]
-
-labels_sign_up = [
-    'First Name',
-    'Last Name',
-    'Date of Birth',
-    'E-mail',
-    'Confirm E-mail',
-    'Post Code',
-    'Password',
-    'Confirm Password'
-]
-
-labels_transfer_menu = [
-    'Target ID',
-    'Amount'
-]
-
-labels_request_menu = [
-    'Request From',
-    'Amount'
-]
-
-labels_admin_panel = [
-    'Target ID',
-    'Target E-mail'
-]
-
-labels_user_details = [
-    'First Name',
-    'Last Name',
-    'Date of Birth',
-    'E-mail',
-    'Post Code',
-    'Password',
-    'Balance',
-    'AccountID'
-]
-
-labels_change_user = [
-    'First Name',
-    'Last Name',
-    'Date of Birth',
-    'E-mail',
-    'Post Code',
-    'Password',
-    'Balance',
-    'AccountID'
-]
-
-
-################################################
-def main_page(destroy_, window):
-    global root
-    if destroy_ == True:
-        purge(window)    
-    else:
-        root = Tk()
-        root.columnconfigure(0, weight=1)
-        root.title("Sign in to Bank")
-        root.geometry(('400x400'))
+def main_page(window):
+    purge(window)    
     
     create_labels_and_entries(root, labels_main)
     
@@ -123,7 +19,7 @@ def main_page(destroy_, window):
     
     button = Button(frame, text="Sign Up", command=sign_up_page, font=font_default)
     button.grid(row=0, column=1, sticky=W, pady=(5,0))
-##
+
 def sign_in():
     e_mail = entries['E-mail'].get()
     password = entries['Password'].get()
@@ -144,7 +40,7 @@ def sign_in():
     else:
         alert(root, 'Incorrect E-mail', alert_row ,0, 'red', 1)
         entries_delete(['E-mail', 'Password'])
-##
+
 def balance_window(pk) :
     purge(root)
     
@@ -162,7 +58,7 @@ def balance_window(pk) :
     button = Button(root, text="Request Money", command=lambda: request_menu(root, details, pk), font=font_default)
     button.grid(row=3, column=0)
     
-    button = Button(root, text="Sign Off", command=lambda: main_page(True, root), font=font_default)
+    button = Button(root, text="Sign Off", command=lambda: main_page(root), font=font_default)
     button.grid(row=4, column=0)
     
     frame = LabelFrame(root, borderwidth=1, text="Requests")
@@ -195,7 +91,7 @@ def transfer_menu(window, balance, pk):
     
     button = Button(frame, command=lambda: balance_window(pk) , text="Go Back", font=font_default)
     button.grid(row=1, column=0, padx=10)
-##
+
 def transfer_check(window, balance, pk):
     target_id = entries['Target ID'].get()
     amount = entries['Amount'].get()
@@ -207,6 +103,8 @@ def transfer_check(window, balance, pk):
             alert(window, 'Amount must be integer', alert_row, 0, 'red', 1)
     else:
         alert(window, 'Invalid target id or amount.', alert_row, 0, 'red', 1)
+    
+    print(target_id, pk)
     details_target = get_details('accountID', target_id)
     details = get_details('e_mail', pk)
     
@@ -221,7 +119,9 @@ def transfer_check(window, balance, pk):
                     elif result == False:
                         balance_window(pk) 
                         alert(root, 'Verification failed.', alert_row, 0, 'red', 1)
-                verify(root, details, details_target, amount, handle_verification, 'transfer')   
+
+                verify(root, details, details_target, amount, handle_verification, 'transfer')
+    
             else:
                 alert(window, 'Balance is too low.', alert_row, 0, 'red', 1)
                 entries_delete(['Amount'])
@@ -231,10 +131,7 @@ def transfer_check(window, balance, pk):
     else:
         alert(window, 'Incorrect Target ID or Amount.', alert_row, 0, 'red', 1)
 
-def transfer(accountID, targetID, amount):
-    details_target = get_details('accountID', targetID)
-    details = get_details('accountID', accountID)
-
+def transfer(details, details_target, amount):
     balance_sender = details[6]
     balance_receiver = details_target[6]
     sender_id = details[7]
@@ -256,8 +153,160 @@ def store_transfer(sender_id, receiver_id, amount):
     values = (sender_id, receiver_id, amount, date) 
     
     cursor.execute(sql_command, values)
+
+def sign_up_page():
+    purge(root)
     
+    label = Label(root, text="Sign Up", font=font_big)
+    label.grid(row=0, column=0)
     
+    create_labels_and_entries(root, labels_sign_up)
+    
+    button = Button(root, text='Sign Up', font=font_default, command=lambda: sign_up(labels_sign_up, root))
+    button.grid(row=10, column=0)
+    
+    button = Button(root, text='Go Back', font=font_default, command=lambda: main_page(root))
+    button.grid(row=11, column=0)
+    
+def sign_up(labels, window):
+    variables = {}
+    for label in labels:
+        value = entries[label].get()
+        if not value:
+            alert(window, f'Field {label} is empty.', alert_row, 0, 'red', 1)
+            return
+        variables[label] = value
+           
+    validated = validate(variables, window)
+
+    if validated == True:
+        
+        values = []
+        dob = datetime.strptime(variables['Date of Birth'], '%d/%m/%Y').strftime('%Y-%m-%d')
+        date_index = list(variables.keys()).index('Date of Birth')
+        
+        for key, value in enumerate(variables.values()):
+            if key == date_index:
+                values.append(dob)
+            else:
+                values.append(value)    
+                                               
+        if variables['E-mail'] == variables['Confirm E-mail']:
+            if variables['Password'] == variables['Confirm Password']:
+                email_used = check_email(values)
+                if email_used == None:
+                    sign_up_success(window, values)
+                else:
+                    alert(window, 'E mail already in use.', alert_row, 0, 'red', 1)
+                    entries_delete(['E-mail', 'Confirm E-mail'])
+            else:
+                alert(window, 'Passwords do not match up.', alert_row, 0, 'red', 1)
+                entries_delete(['Confirm Password'])
+        else:
+                alert(window, 'E-mails do not match up.', alert_row, 0, 'red', 1)
+                entries_delete(['Confirm E-mail'])
+
+def check_email(values):
+    email = values[3]
+    sql_command = "SELECT * FROM bank WHERE e_mail = %s"
+    cursor.execute(sql_command, (email,))
+    fetched = cursor.fetchone()
+    return fetched
+
+def sign_up_success(window, values):
+    sql_command = """INSERT INTO bank 
+    (first_name, last_name, dob, e_mail, postcode, password, balance, accountID) VALUES 
+    (%s, %s, %s, %s, %s, %s, %s, %s)"""
+            
+    accountID = generate_accountID(values)
+
+    values.pop()
+    values.pop(4)
+    values.extend([0, accountID])
+
+    cursor.execute(sql_command, values)
+    mydb.commit()
+    alert(window, 'Successfully signed up, please go back to log in.', alert_row, 0, 'green', 1)
+    
+def validate(variables, window):
+    pattern_email = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+    pattern_password = r'^.{8,}$'
+    pattern_date = r'^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$'
+    pattern_postcode = r'^[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$'
+
+    
+    e_mail_regex = re.match(pattern_email, variables['E-mail'])
+    password_regex = re.match(pattern_password, variables['Password'])
+    date_regex = re.match(pattern_date, variables['Date of Birth'])
+    postcode_regex = re.match(pattern_postcode, variables['Post Code'])
+
+    if e_mail_regex and password_regex and date_regex and postcode_regex:
+        return True
+    else:
+        if not date_regex:
+            alert(window, 'Date format must be DD/MM/YYYY.', alert_row, 0, 'red', 1)
+            entries_delete(['Date of Birth'])
+        elif not e_mail_regex:
+            alert(window, 'E-mail format must be example@smth.com.', alert_row, 0, 'red', 1)
+            entries_delete(['E-mail'])
+        elif not postcode_regex:
+            alert(window, 'Invalid UK post code. (Must be all CAPITALISED)', alert_row, 0, 'red', 1)
+            entries_delete(['Post Code'])
+        else:
+            alert(window, 'Password must be at least 8 characters long.', alert_row, 0, 'red', 1)
+            entries_delete(['Password'])
+        return False
+########################
+def request(window, details, pk):
+    def check_requests(accountID, targetID):
+        sql_command = "SELECT * FROM requests WHERE requester_id = %s AND target_id = %s"
+        values = [accountID, targetID]
+        
+        cursor.execute(sql_command, values)
+        return cursor.fetchone()
+    targetID = entries['Request From'].get()
+    amount = entries['Amount'].get()
+    
+    details_target = get_details('accountID', targetID)
+    accountID = details[7]
+    
+    if targetID and amount:
+        try:
+            float(amount)
+        except ValueError:
+            alert(window, 'Amount must be a number.', alert_row, 0, 'red', 1)
+            return
+        if details_target:
+            if targetID != accountID:
+                prev_requested = check_requests(accountID, targetID)
+                if prev_requested == None:
+                    def handle_verification(result):
+                        verify(root, details, details_target, amount, handle_verification, 'request')
+                        
+                        if result == True:
+                            sql_command = f"INSERT INTO requests (target_id, requester_id, amount) VALUES (%s, %s, %s)"
+                            values = [targetID, accountID, amount]
+                            cursor.execute(sql_command, values)
+                            mydb.commit()
+                            
+                            request_menu(window, details, pk)
+                            alert(window, f'Successfully requested {amount} from {details_target[0]} {details_target[1]}', alert_row, 0, 'green', 3)
+                        elif result == False:
+                            request_menu(window, details, pk)
+                            alert(root, 'Verification failed.', alert_row, 0, 'red', 1)
+                    verify(root, details, details_target, amount, handle_verification, 'request')
+                else:
+                    alert(window, 'Cannot request from same person twice.', alert_row, 0, 'red', 1)
+                    entries_delete(['Request From'])
+            else:
+                alert(window, 'Cannot request from yourself.', alert_row, 0, 'red', 1)
+                entries_delete(['Request From'])
+        else:
+            alert(window, 'Invalid Target ID', alert_row, 0, 'red', 1)
+            entries_delete(['Request From'])
+    else:
+        alert(window, 'Invalid target id or amount.', alert_row, 0, 'red', 1)
+
 def request_menu(window, details, pk):
     purge(window)
     
@@ -334,9 +383,9 @@ def show_requests(window, details, pk, myrequests):
     else:
         alert(window, 'You have no pending requests.', alert_row, 0, 'black', 3)
         
-    def reject_request(requesterID, targetID, details, pk):
-        delete_request(targetID, requesterID, details, pk, reset=False)
-        balance_window(pk) 
+def reject_request(requesterID, targetID, details, pk):
+    delete_request(targetID, requesterID, details, pk, reset=False)
+    balance_window(pk) 
         
 def accept_request(requesterID, targetID, details_receiver, amount, pk):
     details_requester = get_details('accountID', requesterID)
@@ -357,42 +406,6 @@ def accept_request(requesterID, targetID, details_receiver, amount, pk):
 
         verify(root, details_requester, details_receiver, amount, handle_verification, 'transfer')
 
-def verify(window, details, details_target, amount, callback, reason):
-    purge(window)
-    
-    def verified(condition):
-        return condition
-
-    def handle_verification(result):
-        callback(result)
-    
-    if reason == 'request':
-        label = Label(window, text="Confirm Request", font=font_big)
-        label.grid(column=0, row=0)
-        
-        button = Button(window, text="Verify Request", command=lambda:handle_verification(verified(True)), font=font_default)
-        button.grid(column=0, row=4, pady=(10,0))
-    else:
-        label = Label(window, text="Confirm Transfer", font=font_big)
-        label.grid(column=0, row=0)
-        
-        button = Button(window, text="Verify Transaction", command=lambda:handle_verification(verified(True)), font=font_default)
-        button.grid(column=0, row=4, pady=(10,0))
-    
-
-    label = Label(window, text=f"From: {details_target[0]} {details_target[1]}", font=font_default)
-    label.grid(column=0, row=1)
-    
-    label = Label(window, text=f"To: {details[0]} {details[1]}", font=font_default)
-    label.grid(column=0, row=2)
-
-    
-    label = Label(window, text=f"Amount: £{str(amount)}", font=font_big)
-    label.grid(column=0, row=3)
-    
-    button = Button(window, text="Cancel", command=lambda:handle_verification(verified(False)), font=font_default)
-    button.grid(column=0, row=5)
-
 def delete_request(requesterID, targetID, details, pk, reset):
     sql_command = "DELETE FROM requests WHERE requester_id = %s AND target_id = %s"
     values = [requesterID, targetID]
@@ -403,57 +416,9 @@ def delete_request(requesterID, targetID, details, pk, reset):
     if reset:
         purge(root)
         request_menu(root, details, pk)
-
-def request(window, details, pk):
-    def check_requests(accountID, targetID):
-        sql_command = "SELECT * FROM requests WHERE requester_id = %s AND target_id = %s"
-        values = [accountID, targetID]
         
-        cursor.execute(sql_command, values)
-        return cursor.fetchone()
-    targetID = entries['Request From'].get()
-    amount = entries['Amount'].get()
-    
-    details_target = get_details('accountID', targetID)
-    accountID = details[7]
-    
-    if targetID and amount:
-        try:
-            float(amount)
-        except ValueError:
-            alert(window, 'Amount must be a number.', alert_row, 0, 'red', 1)
-            return
-        if details_target:
-            if targetID != accountID:
-                prev_requested = check_requests(accountID, targetID)
-                if prev_requested == None:
-                    def handle_verification(result):
-                        verify(root, details, details_target, amount, handle_verification, 'request')
-                        
-                        if result == True:
-                            sql_command = f"INSERT INTO requests (target_id, requester_id, amount) VALUES (%s, %s, %s)"
-                            values = [targetID, accountID, amount]
-                            cursor.execute(sql_command, values)
-                            mydb.commit()
-                            
-                            request_menu(window, details, pk)
-                            alert(window, f'Successfully requested {amount} from {details_target[0]} {details_target[1]}', alert_row, 0, 'green', 3)
-                        elif result == False:
-                            request_menu(window, details, pk)
-                            alert(root, 'Verification failed.', alert_row, 0, 'red', 1)
-                    verify(root, details, details_target, amount, handle_verification, 'request')
-                else:
-                    alert(window, 'Cannot request from same person twice.', alert_row, 0, 'red', 1)
-                    entries_delete(['Request From'])
-            else:
-                alert(window, 'Cannot request from yourself.', alert_row, 0, 'red', 1)
-                entries_delete(['Request From'])
-        else:
-            alert(window, 'Invalid Target ID', alert_row, 0, 'red', 1)
-            entries_delete(['Request From'])
-    else:
-        alert(window, 'Invalid target id or amount.', alert_row, 0, 'red', 1)
-    
+############################
+
 def admin_panel():
     purge(root)
     
@@ -510,11 +475,11 @@ def show_user(target):
     
 def change_user(criteria):
     if criteria == 'accountID':
-        target = entries['Target ID'].get()
+        target_details = entries['Target ID'].get()
     else:
-        target = entries['Target E-mail'].get()
-    if target:
-        details = get_details(criteria, target)
+        target_details = entries['Target E-mail'].get()
+    if target_details:
+        details = get_details(criteria, target_details)
     else:
         alert(root, 'Invalid Target ID / E-mail', alert_row, 0, 'red', 1)
         return
@@ -526,189 +491,49 @@ def change_user(criteria):
         frame = Frame(details_root)
         frame.grid(row=0, column=0)
         
-        create_labels_and_entries(frame, labels_sign_up) #FIX change to labels_change_user
+        create_labels_and_entries(frame, labels_change_user)
             
-        for detail in details:
-            entries[detail].insert(details[detail])
+        print(details)
+        
+        for index, detail in enumerate(details):
+            entries[labels_change_user[index]].insert(0, detail)
+    else:
+        alert(root, 'Invalid Target ID / E-mail', alert_row, 0, 'red', 1)
+        
+    button = Button(frame, text="Save Changes", font=font_default, command=lambda: save_changes(labels_change_user, frame, target_details))
+    button.grid(row=14, column=0)
     
-def close_window(rootValue):
-    rootValue.destroy()
-## 
-def sign_up_page():
-    purge(root)
-    
-    label = Label(root, text="Sign Up", font=font_big)
-    label.grid(row=0, column=0)
-    
-    create_labels_and_entries(root, labels_sign_up)
-    
-    button = Button(root, text='Sign Up', font=font_default, command=lambda: sign_up(labels_sign_up, root))
-    button.grid(row=10, column=0)
-    
-    button = Button(root, text='Go Back', font=font_default, command=lambda: main_page(True, root))
-    button.grid(row=11, column=0)
-    
-def sign_up(labels, window):
+def save_changes(labels, window, target_details):
     variables = {}
     for label in labels:
         value = entries[label].get()
         if not value:
-            alert(window, f'Field {label} is empty.', alert_row, 0, 'red', 1)
+            alert(window, f'Field \'{label}\' cannot be left empty.', alert_row, 0, 'red', 1)
             return
         variables[label] = value
-           
-    validated = validate(variables, window)
-
-    if validated == True:
         
-        values = []
-        dob = datetime.strptime(variables['Date of Birth'], '%d/%m/%Y').strftime('%Y-%m-%d')
-        date_index = list(variables.keys()).index('Date of Birth')
-        
-        for key, value in enumerate(variables.values()):
-            if key == date_index:
-                values.append(dob)
-            else:
-                values.append(value)    
-                                               
-        if variables['E-mail'] == variables['Confirm E-mail']:
-            if variables['Password'] == variables['Confirm Password']:
-                email_used = check_email(values)
-                if email_used == None:
-                    sign_up_success(window, values)
-                else:
-                    alert(window, 'E mail already in use.', alert_row, 0, 'red', 1)
-                    entries_delete(['E-mail', 'Confirm E-mail'])
-            else:
-                alert(window, 'Passwords do not match up.', alert_row, 0, 'red', 1)
-                entries_delete(['Confirm Password'])
-        else:
-                alert(window, 'E-mails do not match up.', alert_row, 0, 'red', 1)
-                entries_delete(['Confirm E-mail'])
-
-def check_email(values):
-    email = values[3]
-    sql_command = "SELECT * FROM bank WHERE e_mail = %s"
-    cursor.execute(sql_command, (email,))
-    fetched = cursor.fetchone()
-    return fetched
-
-def sign_up_success(window, values):
+    values = []
     
-    sql_command = """INSERT INTO bank 
-    (first_name, last_name, dob, e_mail, postcode, password, balance, accountID) VALUES 
-    (%s, %s, %s, %s, %s, %s, %s, %s)"""
+    for value in variables.values():
+        values.append(value)    
             
-    accountID = generate_accountID(values)
+    commit_changes(target_details)
+                                        
+    print(values)
 
-    values.pop()
-    values.pop(4)
-    values.extend([0, accountID])
-
-    cursor.execute(sql_command, values)
-    mydb.commit()
-    alert(window, 'Successfully signed up, please go back to log in.', alert_row, 0, 'green', 1)
+#TODO continue on this
+def commit_changes(target_details):
+    pass
     
-def validate(variables, window):
-    pattern_email = r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
-    pattern_password = r'^.{8,}$'
-    pattern_date = r'^(0[1-9]|[12][0-9]|3[01])/(0[1-9]|1[0-2])/\d{4}$'
-    pattern_postcode = r'^[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$'
+root = Tk()
+root.columnconfigure(0, weight=1)
+root.title("Sign in to Bank")
+root.geometry(('400x400'))
 
-    
-    e_mail_regex = re.match(pattern_email, variables['E-mail'])
-    password_regex = re.match(pattern_password, variables['Password'])
-    date_regex = re.match(pattern_date, variables['Date of Birth'])
-    postcode_regex = re.match(pattern_postcode, variables['Post Code'])
+main_page(root) #created buttons for main
 
-    if e_mail_regex and password_regex and date_regex and postcode_regex:
-        return True
-    else:
-        if not date_regex:
-            alert(window, 'Date format must be DD/MM/YYYY.', alert_row, 0, 'red', 1)
-            entries_delete(['Date of Birth'])
-        elif not e_mail_regex:
-            alert(window, 'E-mail format must be example@smth.com.', alert_row, 0, 'red', 1)
-            entries_delete(['E-mail'])
-        elif not postcode_regex:
-            alert(window, 'Invalid UK post code. (Must be all CAPITALISED)', alert_row, 0, 'red', 1)
-            entries_delete(['Post Code'])
-        else:
-            alert(window, 'Password must be at least 8 characters long.', alert_row, 0, 'red', 1)
-            entries_delete(['Password'])
-        return False
+#admin_panel()
 
-######################################
-def generate_accountID(values):
-    first_name = values[0]
-    last_name = values[1]
-    while True:
-        random_no = random.randint(100000, 999999)
-        accountID = first_name.capitalize()[0] + last_name.capitalize()[0] + str(random_no)
-
-        cursor.execute("SELECT COUNT(*) FROM bank WHERE accountID = %s", (accountID,))
-        count = cursor.fetchone()[0]
-        
-        if count == 0:
-            return accountID
-def entries_delete(values):
-    for value in values:
-        entries[value].delete(0, END)
-
-def alert(window, value, row, column, colour, columnspan):
-    global labelalert
-    if 'labelalert' in globals() and labelalert:
-        labelalert.destroy()
-    labelalert = Label(window, text=value, font=font_default, fg=colour)
-    labelalert.grid(row=row, column=column, columnspan=columnspan)
-    return labelalert
-
-def purge(window):
-    for widget in window.winfo_children():
-        widget.destroy()
-
-def get_details(target, crit):
-    cursor.execute(f"SELECT * FROM bank WHERE {target} = '{crit}'")
-    details = cursor.fetchone()
-    if details == None:
-        return None
-    else:
-        #Table
-        """
-        firstName = details[0]
-        lastName = details[1]
-        dob = details[2]
-        e_mail = details[3]
-        postcode = details[4]
-        password = details[5]
-        balance = details[6]
-        accountID = details[7]
-        """ 
-        
-        return details
-
-def create_labels_and_entries(rootValue, labelList):
-    frame = Frame(rootValue)
-    frame.grid(row=1, column=0)
-    for label in labelList:
-        label_widget = Label(frame, text=label, font=font_default)
-        label_widget.grid(row=labelList.index(label) + 1, column=0, padx=5)
-        
-        entry_widget = Entry(frame)
-        entry_widget.grid(row=labelList.index(label) + 1, column=1)
-
-        entries[label] = entry_widget
-        
-def create_labels_only(rootValue, labelList, row):
-    for label in labelList:
-        label_widget = Label(rootValue, text=label, font=font_default)
-        label_widget.grid(row=row, column=labelList.index(label) + 1, padx=5)
-    
-
-main_page(False, None) #created buttons for main
-
-balance_window('admin')
-
-# admin_panel()``
+balance_window('atadocey@gmail.com')
 
 root.mainloop()
