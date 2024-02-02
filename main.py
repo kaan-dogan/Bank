@@ -1,6 +1,5 @@
 from tkinter import *
 import mysql.connector
-from tkinter import messagebox
 import random
 from datetime import datetime
 import re
@@ -16,7 +15,6 @@ cursor.execute("CREATE DATABASE IF NOT EXISTS bank")
 
 cursor.execute("USE bank")
 
-#TODO: ADD TRANSACTIONS TABLE
 cursor.execute("""CREATE TABLE IF NOT EXISTS transactions(
     sender_id VARCHAR(100),
     receiver_id VARCHAR(100),
@@ -147,7 +145,7 @@ def sign_in():
         alert(root, 'Incorrect E-mail', alert_row ,0, 'red', 1)
         entries_delete(['E-mail', 'Password'])
 ##
-def balance_window(pk):
+def balance_window(pk) :
     purge(root)
     
     details = get_details('e_mail', pk)
@@ -195,7 +193,7 @@ def transfer_menu(window, balance, pk):
     button = Button(frame, command=lambda: transfer_check(window, balance, pk), text="Transfer Money", font=font_default)
     button.grid(row=0, column=0, padx=10)
     
-    button = Button(frame, command=lambda: balance_window(pk), text="Go Back", font=font_default)
+    button = Button(frame, command=lambda: balance_window(pk) , text="Go Back", font=font_default)
     button.grid(row=1, column=0, padx=10)
 ##
 def transfer_check(window, balance, pk):
@@ -212,16 +210,18 @@ def transfer_check(window, balance, pk):
     details_target = get_details('accountID', target_id)
     details = get_details('e_mail', pk)
     
-    
-    ##TODO update verify !!!!
     if target_id and amount:
         if details_target != None:
             if balance > amount:
-                verify = messagebox.askyesno("Verify", f"Do you want to transfer £{amount} to {details_target[0]} {details_target[1]}?")
-                if verify == True:
-                    transfer(details_target, details, amount)
-                    balance_window(pk)
-                    alert(root, f'Successfully transferred {amount} to {details_target[0]} {details_target[1]}', alert_row, 0, 'green', 1)
+                def handle_verification(result):
+                    verify(root, details, details_target, amount, handle_verification, 'transfer')
+                    if result == True:
+                        transfer(details_target, details, amount)
+                        balance_window(pk) 
+                    elif result == False:
+                        balance_window(pk) 
+                        alert(root, 'Verification failed.', alert_row, 0, 'red', 1)
+                verify(root, details, details_target, amount, handle_verification, 'transfer')   
             else:
                 alert(window, 'Balance is too low.', alert_row, 0, 'red', 1)
                 entries_delete(['Amount'])
@@ -231,8 +231,10 @@ def transfer_check(window, balance, pk):
     else:
         alert(window, 'Incorrect Target ID or Amount.', alert_row, 0, 'red', 1)
 
-def transfer(details_target, details, amount):
-    
+def transfer(accountID, targetID, amount):
+    details_target = get_details('accountID', targetID)
+    details = get_details('accountID', accountID)
+
     balance_sender = details[6]
     balance_receiver = details_target[6]
     sender_id = details[7]
@@ -270,7 +272,7 @@ def request_menu(window, details, pk):
     button = Button(frame, command=lambda: request(window, details, pk), text="Request Money", font=font_default)
     button.grid(row=0, column=0, padx=10)
     
-    button = Button(frame, command=lambda: balance_window(pk), text="Go Back", font=font_default)
+    button = Button(frame, command=lambda: balance_window(pk) , text="Go Back", font=font_default)
     button.grid(row=1, column=0, padx=10)
     
     frame = LabelFrame(root, borderwidth=1, text="My Requests")
@@ -295,58 +297,66 @@ def show_requests(window, details, pk, myrequests):
         cursor.execute(sql_command, values)
         requests = cursor.fetchall()
     
+    receivers = []
+    
     if requests:
         for index, request in enumerate(requests):
-            if myrequests == True:
-                requester_id = request[0]
-            else:
-                requester_id = request[1]
+            requesterID = (request[1]) 
+            receivers.append(request[0]) 
             amount = request[2]
-            details_target = get_details('accountID', requester_id)
+
             if myrequests == True:
-                label = Label(window, text=(f"{request[0]} \n ({details_target[0]} {details_target[1]})"))
+                details_target = get_details('accountID', receivers[index])
+                label = Label(window, text=(f"{receivers[index]} \n ({details_target[0]} {details_target[1]})"))
             else:
-                label = Label(window, text=(f"{requester_id} \n ({details_target[0]} {details_target[1]})"))
+                details_target = get_details('accountID', requesterID)
+                label = Label(window, text=(f"{requesterID} \n ({details_target[0]} {details_target[1]})"))
             
             label.grid(row=index + 1, column=0)
             
-            label = Label(window, text=(amount))
+            label = Label(window, text=(f"£{amount}"))
             label.grid(row=index + 1, column=1) 
             
             frame_buttons = Frame(window)
             frame_buttons.grid(row=index + 1, column=2, columnspan=2, pady=(5, 0))
             
-            if myrequests != True:
-                button = Button(frame_buttons, text='Accept', command=lambda: accept_request(details_target, details, amount, pk))
+            if myrequests:
+                button = Button(frame_buttons, text='Cancel', command=lambda r=request[1], rec=request[0]: delete_request(r, rec, details, pk, True))
+
                 button.grid(row=0, column=0)
-                
-                button = Button(frame_buttons, text='Reject', command=lambda: reject_request(requester_id, details[-1], details, pk))
-                button.grid(row=0, column=1)
             else:
-                button = Button(frame_buttons, text='Cancel', command=lambda: delete_request(requester_id, details[-1], details, pk, True))
+                button = Button(frame_buttons, text='Accept', command=lambda r=request[1], rec=request[0], amt=request[2]: accept_request(r, rec, details, amt, pk))
                 button.grid(row=0, column=0)
-                
+
+                button = Button(frame_buttons, text='Reject', command=lambda r=request[1], rec=request[0]: reject_request(r, rec, details, pk))
+                button.grid(row=0, column=1)
+    
     else:
         alert(window, 'You have no pending requests.', alert_row, 0, 'black', 3)
         
-def accept_request(details_target, details, amount, pk):
-    if details[6] < amount:
+    def reject_request(requesterID, targetID, details, pk):
+        delete_request(targetID, requesterID, details, pk, reset=False)
+        balance_window(pk) 
+        
+def accept_request(requesterID, targetID, details_receiver, amount, pk):
+    details_requester = get_details('accountID', requesterID)
+    
+    if details_receiver[6] < amount:
         alert(root, 'Balance is too low.', alert_row, 0, 'red', 1)
     else:
         def handle_verification(result):
-            verify(root, details, details_target, amount, handle_verification, 'transfer')
-            
-            if result == True:
-                transfer(details_target, details, amount)
-                delete_request(details[7], details_target[7], details, pk, False)
-                balance_window(pk)
-                alert(root, f'Successfully transferred {amount} to {details_target[0]} {details_target[1]}', alert_row, 0, 'green', 1)
-            elif result == False:
-                balance_window(pk)
+            verify(root, details_requester, details_receiver, amount, handle_verification, 'transfer')
+            if result:
+                transfer(targetID, requesterID, amount)
+                delete_request(requesterID, targetID, details_requester, pk, False)
+                balance_window(pk) 
+                alert(root, f'Successfully transferred £{amount} to {details_requester[0]} {details_requester[1]}', alert_row, 0, 'green', 1)
+            else:
+                balance_window(pk) 
                 alert(root, 'Verification failed.', alert_row, 0, 'red', 1)
-                
-        verify(root, details, details_target, amount, handle_verification, 'transfer')
-      
+
+        verify(root, details_requester, details_receiver, amount, handle_verification, 'transfer')
+
 def verify(window, details, details_target, amount, callback, reason):
     purge(window)
     
@@ -369,34 +379,38 @@ def verify(window, details, details_target, amount, callback, reason):
         button = Button(window, text="Verify Transaction", command=lambda:handle_verification(verified(True)), font=font_default)
         button.grid(column=0, row=4, pady=(10,0))
     
-    label = Label(window, text=f"From: {details[0] + " " + details[1]}", font=font_default)
+
+    label = Label(window, text=f"From: {details_target[0]} {details_target[1]}", font=font_default)
     label.grid(column=0, row=1)
     
-    label = Label(window, text=f"To: {details_target[0] + " " + details_target[1]}", font=font_default)
+    label = Label(window, text=f"To: {details[0]} {details[1]}", font=font_default)
     label.grid(column=0, row=2)
+
     
-    label = Label(window, text=f"Amount: {"£" + str(amount)}", font=font_big)
+    label = Label(window, text=f"Amount: £{str(amount)}", font=font_big)
     label.grid(column=0, row=3)
     
     button = Button(window, text="Cancel", command=lambda:handle_verification(verified(False)), font=font_default)
     button.grid(column=0, row=5)
 
 def delete_request(requesterID, targetID, details, pk, reset):
-    sql_command = f"DELETE FROM requests WHERE requester_id = %s AND target_id = %s"
-    values = [targetID, requesterID]
-    
+    sql_command = "DELETE FROM requests WHERE requester_id = %s AND target_id = %s"
+    values = [requesterID, targetID]
+
     cursor.execute(sql_command, values)
     mydb.commit()
-    
-    if reset ==True:
+
+    if reset:
         purge(root)
         request_menu(root, details, pk)
-    
-def reject_request(requesterID, targetID, details, pk):
-    delete_request(targetID, requesterID, details, pk, reset=False)
-    balance_window(pk)
 
 def request(window, details, pk):
+    def check_requests(accountID, targetID):
+        sql_command = "SELECT * FROM requests WHERE requester_id = %s AND target_id = %s"
+        values = [accountID, targetID]
+        
+        cursor.execute(sql_command, values)
+        return cursor.fetchone()
     targetID = entries['Request From'].get()
     amount = entries['Amount'].get()
     
@@ -440,14 +454,6 @@ def request(window, details, pk):
     else:
         alert(window, 'Invalid target id or amount.', alert_row, 0, 'red', 1)
     
-##   
-def check_requests(accountID, targetID):
-    sql_command = "SELECT * FROM requests WHERE requester_id = %s AND target_id = %s"
-    values = [accountID, targetID]
-    
-    cursor.execute(sql_command, values)
-    return cursor.fetchone()
-    
 def admin_panel():
     purge(root)
     
@@ -481,7 +487,7 @@ def show_user(target):
         criteria = entries['Target E-mail'].get()
     if criteria:
         details = get_details(target, criteria)
-        print(details)
+    
     else:
         alert(root, 'Invalid Target ID / E-mail', alert_row, 0, 'red', 1)
         return
@@ -520,11 +526,10 @@ def change_user(criteria):
         frame = Frame(details_root)
         frame.grid(row=0, column=0)
         
-        create_labels_and_entries(frame, labels_sign_up) 
+        create_labels_and_entries(frame, labels_sign_up) #FIX change to labels_change_user
             
-        
-        for index in enumerate(details):
-            entries[index].insert(details[index])
+        for detail in details:
+            entries[detail].insert(details[detail])
     
 def close_window(rootValue):
     rootValue.destroy()
@@ -641,7 +646,6 @@ def generate_accountID(values):
         random_no = random.randint(100000, 999999)
         accountID = first_name.capitalize()[0] + last_name.capitalize()[0] + str(random_no)
 
-        
         cursor.execute("SELECT COUNT(*) FROM bank WHERE accountID = %s", (accountID,))
         count = cursor.fetchone()[0]
         
@@ -669,7 +673,7 @@ def get_details(target, crit):
     if details == None:
         return None
     else:
-        ##Table
+        #Table
         """
         firstName = details[0]
         lastName = details[1]
@@ -703,8 +707,8 @@ def create_labels_only(rootValue, labelList, row):
 
 main_page(False, None) #created buttons for main
 
-balance_window('kaandn51@gmail.com')
+balance_window('admin')
 
-# admin_panel()
+# admin_panel()``
 
 root.mainloop()
