@@ -63,14 +63,20 @@ labels_change_user = [
     'E-mail',
     'Post Code',
     'Password',
-    'Balance',
-    'AccountID'
+    'Balance'
 ]
 
+labels_transaction_history = [
+    'Sender ID',
+    'Receiver ID',
+    'Amount (£)',
+    'Date',
+    'Transaction ID'
+]
 
-def create_labels_only(rootValue, labelList, row):
+def create_labels_only(rootValue, labelList, row, font_=font_default, width_ = None):
     for label in labelList:
-        label_widget = Label(rootValue, text=label, font=font_default)
+        label_widget = Label(rootValue, text=label, font=font_, width=width_)
         label_widget.grid(row=row, column=labelList.index(label) + 1, padx=5)
         
 def create_labels_and_entries(rootValue, labelList):
@@ -90,7 +96,6 @@ def purge(window):
         widget.destroy()
         
 def alert(window, value, row, column, colour, columnspan):
-    global labelalert
     if 'labelalert' in globals() and labelalert:
         labelalert.destroy()
     labelalert = Label(window, text=value, font=font_default, fg=colour)
@@ -127,10 +132,10 @@ def verify(window, details, details_target, amount, callback, reason):
         button.grid(column=0, row=4, pady=(10,0))
     
 
-    label = Label(window, text=f"From: {details_target[0]} {details_target[1]}", font=font_default)
+    label = Label(window, text=f"From: {details[0]} {details[1]}", font=font_default)
     label.grid(column=0, row=1)
     
-    label = Label(window, text=f"To: {details[0]} {details[1]}", font=font_default)
+    label = Label(window, text=f"To: {details_target[0]} {details_target[1]}", font=font_default)
     label.grid(column=0, row=2)
 
     

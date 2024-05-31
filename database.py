@@ -1,10 +1,12 @@
 import mysql.connector
-import random
+import random #to generate an account id
 
 mydb = mysql.connector.connect(
-    host='localhost',
+    host='127.0.0.1',
+    port='3306',
     user='root',
     password='password123',
+    database='BANK'
 )
 cursor = mydb.cursor()
 
@@ -12,11 +14,13 @@ cursor.execute("CREATE DATABASE IF NOT EXISTS bank")
 
 cursor.execute("USE bank")
 
-cursor.execute("""CREATE TABLE IF NOT EXISTS transactions(
+cursor.execute("""CREATE TABLE IF NOT EXISTS transactions (
+    transaction_id VARCHAR(100),
     sender_id VARCHAR(100),
     receiver_id VARCHAR(100),
     amount FLOAT,
-    date DATE
+    date DATE,
+    PRIMARY KEY (transaction_id)
     )""")
 
 cursor.execute("""CREATE TABLE IF NOT EXISTS bank(
@@ -39,8 +43,8 @@ cursor.execute("""CREATE TABLE IF NOT EXISTS requests(
 mydb.commit()
 
 def get_details(target, crit):
-    print(target, crit)
     try:
+        print(target, crit)
         if target == 'e_mail':
             cursor.execute("SELECT * FROM bank WHERE e_mail = %s", (crit,))
         elif target == 'accountID':
@@ -74,3 +78,4 @@ def generate_accountID(values):
         
         if count == 0:
             return accountID
+        
